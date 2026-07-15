@@ -65,6 +65,21 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
 .phone-value { font-size: 28px; font-weight: 700; color: #202124; line-height: 1.1; margin-bottom: 6px; }
 .phone-comps { font-size: 12px; color: #80868b; }
 .phone-note { font-size: 11px; color: #80868b; background: #e0f2f1; border-radius: 4px; padding: 6px 10px; }
+
+/* Tab navigation */
+.tab-nav { display: flex; gap: 4px; }
+.tab-btn { border: 1px solid #dadce0; background: white; color: #80868b; padding: 5px 18px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 500; }
+.tab-btn.active { background: #1a73e8; color: white; border-color: #1a73e8; }
+.tab-btn:hover:not(.active) { background: #f0f4f9; }
+
+/* SEO device breakdown bar */
+.dev-row { display: flex; border-radius: 6px; overflow: hidden; height: 34px; }
+.dev-seg { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: white; padding: 0 8px; white-space: nowrap; min-width: 0; }
+.dev-desktop { background: #1a73e8; }
+.dev-mobile  { background: #34a853; }
+.dev-tablet  { background: #fbbc04; color: #333; }
+.dev-legend  { display: flex; gap: 20px; padding: 10px 0 0; font-size: 12px; color: #5f6368; }
+.dev-dot     { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -85,6 +100,10 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
     <option value="lm">Last Month</option>
     <option value="3m">Last 3 Months</option>
   </select>
+  <div class="tab-nav">
+    <button id="tab-ads" class="tab-btn active" onclick="showTab('ads')">Google Ads</button>
+    <button id="tab-seo" class="tab-btn" onclick="showTab('seo')">SEO</button>
+  </div>
   <button class="refresh-btn" onclick="loadData()">&#8635; Refresh</button>
 </div>
 
@@ -169,10 +188,59 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
       </div>
     </div>
 
-  </div>
+  </div><!-- /#content -->
+
+  <!-- ═══ SEO TAB ══════════════════════════════════════════════════════════ -->
+  <div id="seo-content" style="display:none">
+
+    <div class="section-label">Google Search Console <span style="font-size:10px;font-weight:400;text-transform:none;color:#9aa0a6">Organic search clicks &amp; impressions</span></div>
+    <div class="kpi-grid" id="seo-kpi-gsc" style="grid-template-columns:repeat(4,1fr)"></div>
+
+    <div class="section-label">Google Analytics 4 <span style="font-size:10px;font-weight:400;text-transform:none;color:#9aa0a6">Organic channel sessions &amp; engagement</span></div>
+    <div class="kpi-grid" id="seo-kpi-ga4" style="grid-template-columns:repeat(5,1fr)"></div>
+
+    <div class="section-label">Device Breakdown <span style="font-size:10px;font-weight:400;text-transform:none;color:#9aa0a6">Month to Date — GA4 sessions</span></div>
+    <div class="table-wrap" style="padding:16px" id="seo-device-wrap"></div>
+
+    <div class="section-label">Top Organic Queries — Google Search Console</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Query</th>
+            <th class="r">Clicks</th>
+            <th class="r">Impressions</th>
+            <th class="r">CTR</th>
+            <th class="r">Avg Position</th>
+          </tr>
+        </thead>
+        <tbody id="seo-query-body"></tbody>
+      </table>
+    </div>
+
+    <div class="section-label">Top Landing Pages — Google Analytics 4</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Landing Page</th>
+            <th class="r">Sessions</th>
+            <th class="r">vs Prev</th>
+            <th class="r">Users</th>
+            <th class="r">vs Prev</th>
+            <th class="r">Key Events</th>
+            <th class="r">vs Prev</th>
+          </tr>
+        </thead>
+        <tbody id="seo-pages-body"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /#seo-content -->
+
 </main>
 
-<div class="footer">Brisbane Showgrounds &middot; Google Ads Dashboard &middot; Data updates daily at 5am AEST</div>
+<div class="footer">Brisbane Showgrounds &middot; Google Ads &amp; SEO Dashboard &middot; Data updates daily at 5am AEST</div>
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -182,6 +250,7 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbxRbH17wRA0DEB1R9wMGRVc-N
 
 // ── State ──────────────────────────────────────────────
 var dashData   = {};
+var activeTab  = 'ads';
 var chartSpend = null;
 var chartConv  = null;
 var chartCPA   = null;
@@ -213,6 +282,26 @@ var CONVM = {
   '3m':  { cv:34, pop:36, yoy:38, rv:39, qcv:48 }
 };
 
+// SEO Performance sheet — 0-based column indices
+// Cols 3-10:  GSC Clicks (7D cur/prev, 30D cur/prev, MTD cur/prev, LM cur/prev)
+// Cols 11-18: GSC Impressions
+// Cols 19-26: GSC CTR
+// Cols 27-34: GSC Avg Position (lower = better)
+// Cols 35-42: GA4 Sessions
+// Cols 43-50: GA4 Users
+// Cols 51-58: GA4 Bounce Rate
+// Cols 59-66: GA4 Engagement Rate
+// Cols 67-74: GA4 Key Events
+// Cols 75-77: Device Desktop%, Mobile%, Tablet%
+var SEOMAP = {
+  '7d':  { cl:3,  clP:4,  im:11, imP:12, ctr:19, ctrP:20, pos:27, posP:28, ss:35, ssP:36, us:43, usP:44, br:51, brP:52, en:59, enP:60, ev:67, evP:68 },
+  '30d': { cl:5,  clP:6,  im:13, imP:14, ctr:21, ctrP:22, pos:29, posP:30, ss:37, ssP:38, us:45, usP:46, br:53, brP:54, en:61, enP:62, ev:69, evP:70 },
+  'mtd': { cl:7,  clP:8,  im:15, imP:16, ctr:23, ctrP:24, pos:31, posP:32, ss:39, ssP:40, us:47, usP:48, br:55, brP:56, en:63, enP:64, ev:71, evP:72 },
+  'lm':  { cl:9,  clP:10, im:17, imP:18, ctr:25, ctrP:26, pos:33, posP:34, ss:41, ssP:42, us:49, usP:50, br:57, brP:58, en:65, enP:66, ev:73, evP:74 },
+  '3m':  null  // 3-month not collected for SEO — will show a message
+};
+var SEODM = { desktop: 75, mobile: 76, tablet: 77 };
+
 // ── Helpers ────────────────────────────────────────────
 function n(v)    { return parseFloat(v) || 0; }
 function aud(v)  { return '$' + n(v).toLocaleString('en-AU', { maximumFractionDigits: 0 }); }
@@ -238,11 +327,22 @@ function latestRows(rows) {
   return body.filter(function(r) { return String(r[0] || '').substring(0, 10) === mx; });
 }
 
+// ── Tab switching ──────────────────────────────────────
+function showTab(tab) {
+  activeTab = tab;
+  document.getElementById('content').style.display     = tab === 'ads' ? 'block' : 'none';
+  document.getElementById('seo-content').style.display = tab === 'seo' ? 'block' : 'none';
+  document.getElementById('tab-ads').classList.toggle('active', tab === 'ads');
+  document.getElementById('tab-seo').classList.toggle('active', tab === 'seo');
+  if (tab === 'seo') renderSEO(document.getElementById('range-select').value);
+}
+
 // ── Load data ──────────────────────────────────────────
 function loadData() {
-  document.getElementById('loading').style.display   = 'block';
-  document.getElementById('content').style.display   = 'none';
-  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('loading').style.display     = 'block';
+  document.getElementById('content').style.display     = 'none';
+  document.getElementById('seo-content').style.display = 'none';
+  document.getElementById('error-box').style.display   = 'none';
 
   fetch(API_URL, { redirect: 'follow', credentials: 'omit' })
     .then(function(r) {
@@ -252,7 +352,12 @@ function loadData() {
     .then(function(data) {
       dashData = data;
       document.getElementById('loading').style.display = 'none';
-      document.getElementById('content').style.display = 'block';
+      // Show whichever tab was active
+      if (activeTab === 'seo') {
+        document.getElementById('seo-content').style.display = 'block';
+      } else {
+        document.getElementById('content').style.display = 'block';
+      }
       renderAll();
     })
     .catch(function(e) {
@@ -266,11 +371,15 @@ function loadData() {
 // ── Render all ─────────────────────────────────────────
 function renderAll() {
   var range = document.getElementById('range-select').value;
-  renderKPIs(range);
-  renderPhoneCalls(range);
-  renderCampaigns(range);
-  renderConversions(range);
-  renderCharts();
+  if (activeTab === 'ads') {
+    renderKPIs(range);
+    renderPhoneCalls(range);
+    renderCampaigns(range);
+    renderConversions(range);
+    renderCharts();
+  } else {
+    renderSEO(range);
+  }
 }
 
 // ── 10 KPI cards ───────────────────────────────────────
@@ -562,6 +671,178 @@ function renderCharts() {
 
 // ── Start ───────────────────────────────────────────────
 window.onload = function() { loadData(); };
+
+// ══════════════════════════════════════════════════════
+//  SEO TAB RENDER FUNCTIONS
+// ══════════════════════════════════════════════════════
+
+function renderSEO(range) {
+  renderSEOKPIs(range);
+  renderSEODevice();
+  renderSEOQueries(range);
+  renderSEOPages(range);
+}
+
+// ── SEO KPI cards ──────────────────────────────────────
+function renderSEOKPIs(range) {
+  var rows = latestRows(dashData.seoKpis || []);
+  var m    = SEOMAP[range];
+
+  var noDataMsg = '<div style="color:#80868b;font-size:13px;padding:12px 0">No SEO data yet.<br>In Apps Script run <strong>6. Refresh SEO (GSC + GA4)</strong> then redeploy the web app.</div>';
+
+  if (!rows.length) {
+    document.getElementById('seo-kpi-gsc').innerHTML = noDataMsg;
+    document.getElementById('seo-kpi-ga4').innerHTML = '';
+    return;
+  }
+  if (!m) {
+    var msg = '<div style="color:#80868b;font-size:13px;padding:12px 0">3-month SEO data is not collected. Select a different range.</div>';
+    document.getElementById('seo-kpi-gsc').innerHTML = msg;
+    document.getElementById('seo-kpi-ga4').innerHTML = '';
+    return;
+  }
+
+  var r = rows[0];
+
+  // Compute period-over-period change (null if no prev data)
+  function chg(curr, prev) {
+    return (prev > 0) ? (curr - prev) / prev : null;
+  }
+
+  // Render a change badge; inverted = lower is better (bounce rate, avg position)
+  function popBadge(val, inverted) {
+    if (val === null) return '<span class="neu">PoP —</span>';
+    var good = inverted ? (val < 0) : (val > 0);
+    var cls  = good ? 'pos' : 'neg';
+    return 'PoP <span class="' + cls + '">' + (val > 0 ? '+' : '') + (val * 100).toFixed(1) + '%</span>';
+  }
+
+  function seoCard(label, value, pop, color, bg) {
+    return '<div class="kpi-card" style="border-left-color:' + color + ';background:' + bg + '">' +
+      '<div class="kpi-label" style="color:' + color + '">' + label + '</div>' +
+      '<div class="kpi-value">' + value + '</div>' +
+      '<div class="kpi-comps">' + pop + '</div>' +
+      '</div>';
+  }
+
+  var cl  = n(r[m.cl]),   clP  = n(r[m.clP]);
+  var im  = n(r[m.im]),   imP  = n(r[m.imP]);
+  var ctr = n(r[m.ctr]),  ctrP = n(r[m.ctrP]);
+  var pos = n(r[m.pos]),  posP = n(r[m.posP]);
+  var ss  = n(r[m.ss]),   ssP  = n(r[m.ssP]);
+  var us  = n(r[m.us]),   usP  = n(r[m.usP]);
+  var br  = n(r[m.br]),   brP  = n(r[m.brP]);
+  var en  = n(r[m.en]),   enP  = n(r[m.enP]);
+  var ev  = n(r[m.ev]),   evP  = n(r[m.evP]);
+
+  document.getElementById('seo-kpi-gsc').innerHTML = [
+    seoCard('Organic Clicks',  int(cl),           popBadge(chg(cl, clP),   false), '#0d47a1', '#e3f2fd'),
+    seoCard('Impressions',     int(im),            popBadge(chg(im, imP),   false), '#37474f', '#eceff1'),
+    seoCard('CTR',             pct(ctr),           popBadge(chg(ctr, ctrP), false), '#1b5e20', '#e8f5e9'),
+    seoCard('Avg Position',    pos.toFixed(1),     popBadge(chg(posP, pos), false), '#4a148c', '#f3e5f5')
+  ].join('');
+  // Note: for Avg Position, chg(posP, pos) means (prev - curr)/curr, so if position improved
+  // (number went down), prev > curr, result is positive → shown as green.
+
+  document.getElementById('seo-kpi-ga4').innerHTML = [
+    seoCard('Sessions',        int(ss),            popBadge(chg(ss, ssP),   false), '#006064', '#e0f7fa'),
+    seoCard('Users',           int(us),            popBadge(chg(us, usP),   false), '#e65100', '#fff3e0'),
+    seoCard('Bounce Rate',     pct(br),            popBadge(chg(brP, br),   false), '#880e4f', '#fce4ec'),
+    seoCard('Engagement Rate', pct(en),            popBadge(chg(en, enP),   false), '#1a237e', '#e8eaf6'),
+    seoCard('Key Events',      int(ev),            popBadge(chg(ev, evP),   false), '#1b5e20', '#e8f5e9')
+  ].join('');
+  // Note: Bounce Rate badge uses chg(brP, br) so lower bounce = positive (green).
+}
+
+// ── Device breakdown bar ────────────────────────────────
+function renderSEODevice() {
+  var rows = latestRows(dashData.seoKpis || []);
+  var wrap = document.getElementById('seo-device-wrap');
+  if (!rows.length) {
+    wrap.innerHTML = '<div style="color:#80868b;font-size:13px">No device data yet.</div>';
+    return;
+  }
+  var r       = rows[0];
+  var desktop = n(r[SEODM.desktop]) * 100;
+  var mobile  = n(r[SEODM.mobile])  * 100;
+  var tablet  = n(r[SEODM.tablet])  * 100;
+  // Normalise in case of rounding
+  var total   = desktop + mobile + tablet;
+  if (total > 0) { desktop = desktop / total * 100; mobile = mobile / total * 100; tablet = tablet / total * 100; }
+
+  function seg(cls, w, label) {
+    if (w < 0.5) return '';
+    var text = w >= 8 ? label + ' ' + w.toFixed(1) + '%' : (w >= 4 ? w.toFixed(0) + '%' : '');
+    return '<div class="dev-seg ' + cls + '" style="width:' + w.toFixed(2) + '%">' + text + '</div>';
+  }
+
+  wrap.innerHTML =
+    '<div class="dev-row">' +
+      seg('dev-desktop', desktop, 'Desktop') +
+      seg('dev-mobile',  mobile,  'Mobile') +
+      seg('dev-tablet',  tablet,  'Tablet') +
+    '</div>' +
+    '<div class="dev-legend">' +
+      '<span><span class="dev-dot" style="background:#1a73e8"></span>Desktop ' + desktop.toFixed(1) + '%</span>' +
+      '<span><span class="dev-dot" style="background:#34a853"></span>Mobile '  + mobile.toFixed(1)  + '%</span>' +
+      (tablet >= 0.5 ? '<span><span class="dev-dot" style="background:#fbbc04"></span>Tablet ' + tablet.toFixed(1) + '%</span>' : '') +
+    '</div>';
+}
+
+// ── Top Queries table ───────────────────────────────────
+function renderSEOQueries(range) {
+  var labelMap = { '7d':'7D', '30d':'30D', 'mtd':'MTD', 'lm':'LM', '3m':'MTD' };
+  var label    = labelMap[range] || 'MTD';
+  var all      = (dashData.seoQueries || []).slice(1);
+  var rows     = all.filter(function(r) { return r[1] === label; });
+  var tbody    = document.getElementById('seo-query-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#80868b">No query data — run Refresh SEO in Apps Script first.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(r) {
+    return '<tr>' +
+      '<td class="cn" title="' + r[2] + '">' + r[2] + '</td>' +
+      '<td class="r">' + int(r[3]) + '</td>' +
+      '<td class="r">' + int(r[4]) + '</td>' +
+      '<td class="r">' + pct(r[5]) + '</td>' +
+      '<td class="r">' + Number(r[6]).toFixed(1) + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+// ── Top Landing Pages table ─────────────────────────────
+function renderSEOPages(range) {
+  var labelMap = { '7d':'7D', '30d':'30D', 'mtd':'MTD', 'lm':'LM', '3m':'MTD' };
+  var label    = labelMap[range] || 'MTD';
+  var all      = (dashData.seoPages || []).slice(1);
+  var rows     = all.filter(function(r) { return r[1] === label; });
+  var tbody    = document.getElementById('seo-pages-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#80868b">No landing page data — run Refresh SEO in Apps Script first.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(r) {
+    var ss = n(r[3]), ssp = n(r[4]);
+    var us = n(r[5]), usp = n(r[6]);
+    var ev = n(r[7]), evp = n(r[8]);
+    function delta(c, p) {
+      if (!p) return '<span class="neu">—</span>';
+      return pctHtml((c - p) / p);
+    }
+    // Shorten page path for display
+    var page = String(r[2] || '').replace(/^https?:\/\/[^\/]+/, '');
+    return '<tr>' +
+      '<td class="cn" title="' + r[2] + '">' + (page || r[2]) + '</td>' +
+      '<td class="r">' + int(ss)          + '</td>' +
+      '<td class="r">' + delta(ss, ssp)   + '</td>' +
+      '<td class="r">' + int(us)          + '</td>' +
+      '<td class="r">' + delta(us, usp)   + '</td>' +
+      '<td class="r">' + int(ev)          + '</td>' +
+      '<td class="r">' + delta(ev, evp)   + '</td>' +
+      '</tr>';
+  }).join('');
+}
 </script>
 </body>
 </html>
