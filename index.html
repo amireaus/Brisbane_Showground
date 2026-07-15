@@ -113,7 +113,15 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
     </div>
 
     <!-- Conversions by type -->
-    <div class="section-label">Conversions by Type — Google Ads</div>
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Conversions by Type — Google Ads</span>
+      <select id="conv-account-filter" onchange="renderConversions(document.getElementById('range-select').value)"
+        style="font-size:12px;padding:3px 8px;border:1px solid #dadce0;border-radius:4px;color:#202124;background:white">
+        <option value="all">All Accounts</option>
+        <option value="RNA (Brisbane Showgrounds)">RNA (Brisbane Showgrounds)</option>
+        <option value="Brisbane Showgrounds (July 26)">Brisbane Showgrounds (July 26)</option>
+      </select>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -166,13 +174,12 @@ var chartCPA   = null;
 
 // ── Column maps (0-based) ──────────────────────────────
 // Daily Performance sheet
-// spP = prev period spend (for PoP calc), spYoy = YoY spend amount (for YoY calc)
 var DM = {
-  '7d':  { sp:4,  spP:5,  spYoy:7,  cv:24, rv:28, rvP:29, cl:44 },
-  '30d': { sp:9,  spP:10, spYoy:12, cv:25, rv:30, rvP:31, cl:45 },
-  'mtd': { sp:14, spP:15, spYoy:17, cv:26, rv:32, rvP:33, cl:46 },
-  'lm':  { sp:19, spP:20, spYoy:22, cv:27, rv:34, rvP:35, cl:47 },
-  '3m':  { sp:52, spP:53, spYoy:55, cv:57, rv:58, rvP:59, cl:62 }
+  '7d':  { sp:4,  spP:5,  spYoy:7,  cv:24, cvP:88, cvYoy:93, rv:28, rvP:29, cl:44, clP:78, clYoy:83, im:63, imP:64, imYoy:65 },
+  '30d': { sp:9,  spP:10, spYoy:12, cv:25, cvP:89, cvYoy:94, rv:30, rvP:31, cl:45, clP:79, clYoy:84, im:66, imP:67, imYoy:68 },
+  'mtd': { sp:14, spP:15, spYoy:17, cv:26, cvP:90, cvYoy:95, rv:32, rvP:33, cl:46, clP:80, clYoy:85, im:69, imP:70, imYoy:71 },
+  'lm':  { sp:19, spP:20, spYoy:22, cv:27, cvP:91, cvYoy:96, rv:34, rvP:35, cl:47, clP:81, clYoy:86, im:72, imP:73, imYoy:74 },
+  '3m':  { sp:52, spP:53, spYoy:55, cv:57, cvP:92, cvYoy:97, rv:58, rvP:59, cl:62, clP:82, clYoy:87, im:75, imP:76, imYoy:77 }
 };
 // Campaign Performance sheet
 var CM = {
@@ -262,50 +269,61 @@ function renderKPIs(range) {
       'Last pull: ' + String(dailyRows[0][0]).substring(0, 10) + ' AEST';
   }
 
-  // Totals from Daily Performance (both accounts summed)
-  var sp=0, spP=0, spYoyAmt=0, cv=0, rv=0, rvP=0, cl=0;
+  // Sum all metrics across accounts from Daily Performance
+  var sp=0,spP=0,spYoyAmt=0, cv=0,cvP=0,cvYoy=0, rv=0,rvP=0,
+      cl=0,clP=0,clYoy=0, im=0,imP=0,imYoy=0;
   dailyRows.forEach(function(r) {
-    sp       += n(r[dm.sp]);
-    spP      += n(r[dm.spP]);
-    spYoyAmt += n(r[dm.spYoy]);
-    cv       += n(r[dm.cv]);
-    rv       += n(r[dm.rv]);
-    rvP      += n(r[dm.rvP]);
-    cl       += n(r[dm.cl]);
+    sp      += n(r[dm.sp]);    spP     += n(r[dm.spP]);   spYoyAmt += n(r[dm.spYoy]);
+    cv      += n(r[dm.cv]);    cvP     += n(r[dm.cvP]);   cvYoy    += n(r[dm.cvYoy]);
+    rv      += n(r[dm.rv]);    rvP     += n(r[dm.rvP]);
+    cl      += n(r[dm.cl]);    clP     += n(r[dm.clP]);   clYoy    += n(r[dm.clYoy]);
+    im      += n(r[dm.im]);    imP     += n(r[dm.imP]);   imYoy    += n(r[dm.imYoy]);
   });
 
-  // Impressions from Campaign Performance (not stored in Daily Performance)
-  var im = 0;
-  campRows.forEach(function(r) { im += n(r[cm.im]); });
-
-  // Derived metrics
+  // Derived — current period
   var cpa    = cv > 0 ? sp / cv : 0;
   var roas   = sp > 0 ? rv / sp : 0;
   var cpc    = cl > 0 ? sp / cl : 0;
   var ctr    = im > 0 ? cl / im : 0;
   var cvrate = cl > 0 ? cv / cl : 0;
+  // Derived — previous period (for PoP)
+  var cpaP    = cvP > 0 ? spP     / cvP  : 0;
+  var cpcP    = clP > 0 ? spP     / clP  : 0;
+  var ctrP    = imP > 0 ? clP     / imP  : 0;
+  var cvrateP = clP > 0 ? cvP     / clP  : 0;
+  // Derived — YoY period
+  var cpaY    = cvYoy > 0 ? spYoyAmt / cvYoy  : 0;
+  var cpcY    = clYoy > 0 ? spYoyAmt / clYoy  : 0;
+  var ctrY    = imYoy > 0 ? clYoy    / imYoy  : 0;
+  var cvrateY = clYoy > 0 ? cvYoy    / clYoy  : 0;
 
-  // Comparisons — only Spend has both PoP and YoY; Revenue has PoP
-  var spPop = spP      > 0 ? (sp - spP)      / spP      : null;
-  var spYoy = spYoyAmt > 0 ? (sp - spYoyAmt) / spYoyAmt : null;
-  var rvPop = rvP      > 0 ? (rv - rvP)      / rvP      : null;
+  function chg(curr, prev) { return prev > 0 ? (curr - prev) / prev : null; }
 
   var cards = [
-    { l:'Impressions', v:int(im),                   pop:null,  yoy:null,  c:'#37474f', bg:'#eceff1' },
-    { l:'Clicks',      v:int(cl),                   pop:null,  yoy:null,  c:'#4a148c', bg:'#f3e5f5' },
-    { l:'Spend',       v:aud(sp),                   pop:spPop, yoy:spYoy, c:'#0d47a1', bg:'#e3f2fd' },
-    { l:'Avg CPC',     v:audD(cpc),                 pop:null,  yoy:null,  c:'#006064', bg:'#e0f7fa' },
-    { l:'CTR',         v:pct(ctr),                  pop:null,  yoy:null,  c:'#4e342e', bg:'#fbe9e7' },
-    { l:'Conversions', v:int(cv),                   pop:null,  yoy:null,  c:'#1b5e20', bg:'#e8f5e9' },
-    { l:'CPA',         v:cpa > 0 ? aud(cpa) : '—', pop:null,  yoy:null,  c:'#880e4f', bg:'#fce4ec' },
-    { l:'Conv Rate',   v:pct(cvrate),               pop:null,  yoy:null,  c:'#1a237e', bg:'#e8eaf6' },
-    { l:'Revenue',     v:aud(rv),                   pop:rvPop, yoy:null,  c:'#0d47a1', bg:'#e3f2fd' },
-    { l:'ROAS',        v:roas.toFixed(2) + 'x',     pop:null,  yoy:null,  c:'#e65100', bg:'#fff3e0' }
+    { l:'Impressions', v:int(im),                   pop:chg(im,    imP),    yoy:chg(im,    imYoy),    c:'#37474f', bg:'#eceff1' },
+    { l:'Clicks',      v:int(cl),                   pop:chg(cl,    clP),    yoy:chg(cl,    clYoy),    c:'#4a148c', bg:'#f3e5f5' },
+    { l:'Spend',       v:aud(sp),                   pop:chg(sp,    spP),    yoy:chg(sp,    spYoyAmt), c:'#0d47a1', bg:'#e3f2fd' },
+    { l:'Avg CPC',     v:audD(cpc),                 pop:chg(cpc,   cpcP),   yoy:chg(cpc,   cpcY),    c:'#006064', bg:'#e0f7fa', inv:true },
+    { l:'CTR',         v:pct(ctr),                  pop:chg(ctr,   ctrP),   yoy:chg(ctr,   ctrY),    c:'#4e342e', bg:'#fbe9e7' },
+    { l:'Conversions', v:int(cv),                   pop:chg(cv,    cvP),    yoy:chg(cv,    cvYoy),   c:'#1b5e20', bg:'#e8f5e9' },
+    { l:'CPA',         v:cpa > 0 ? aud(cpa) : '—', pop:chg(cpa,   cpaP),   yoy:chg(cpa,   cpaY),    c:'#880e4f', bg:'#fce4ec', inv:true },
+    { l:'Conv Rate',   v:pct(cvrate),               pop:chg(cvrate,cvrateP),yoy:chg(cvrate,cvrateY), c:'#1a237e', bg:'#e8eaf6' },
+    { l:'Revenue',     v:aud(rv),                   pop:chg(rv,    rvP),    yoy:null,                 c:'#0d47a1', bg:'#e3f2fd' },
+    { l:'ROAS',        v:roas.toFixed(2) + 'x',     pop:null,               yoy:null,                 c:'#e65100', bg:'#fff3e0' }
   ];
 
+  function pctHtmlInv(v, inv) {
+    var f = n(v);
+    if (f === 0 || isNaN(f) || v === null) return '<span class="neu">—</span>';
+    // For inv metrics (CPA, CPC) lower = better, so flip colour
+    var good = inv ? f < 0 : f > 0;
+    var cls  = good ? 'pos' : 'neg';
+    return '<span class="' + cls + '">' + (f > 0 ? '+' : '') + (f * 100).toFixed(1) + '%</span>';
+  }
+
   document.getElementById('kpi-grid').innerHTML = cards.map(function(c) {
-    var popStr = c.pop !== null ? 'PoP ' + pctHtml(c.pop) : '<span class="neu">PoP —</span>';
-    var yoyStr = c.yoy !== null ? 'YoY ' + pctHtml(c.yoy) : '<span class="neu">YoY —</span>';
+    var popStr = c.pop !== null ? 'PoP ' + pctHtmlInv(c.pop, c.inv) : '<span class="neu">PoP —</span>';
+    var yoyStr = c.yoy !== null ? 'YoY ' + pctHtmlInv(c.yoy, c.inv) : '<span class="neu">YoY —</span>';
     return '<div class="kpi-card" style="border-left-color:' + c.c + ';background:' + c.bg + '">' +
       '<div class="kpi-label" style="color:' + c.c + '">' + c.l + '</div>' +
       '<div class="kpi-value">' + c.v + '</div>' +
@@ -382,7 +400,11 @@ function renderCampaigns(range) {
 
 // ── Conversions by type table ───────────────────────────
 function renderConversions(range) {
-  var rows = latestRows(dashData.conversions || []);
+  var allRows = latestRows(dashData.conversions || []);
+  var acctSel = document.getElementById('conv-account-filter');
+  var acctFilter = acctSel ? acctSel.value : 'all';
+  // col 1 = Client name
+  var rows = acctFilter === 'all' ? allRows : allRows.filter(function(r) { return r[1] === acctFilter; });
   var m    = CONVM[range];
   var by   = {};
 
