@@ -166,12 +166,13 @@ var chartCPA   = null;
 
 // ── Column maps (0-based) ──────────────────────────────
 // Daily Performance sheet
+// spP = prev period spend (for PoP calc), spYoy = YoY spend amount (for YoY calc)
 var DM = {
-  '7d':  { sp:4,  spP:5,  cv:24, rv:28, rvP:29, cl:44 },
-  '30d': { sp:9,  spP:10, cv:25, rv:30, rvP:31, cl:45 },
-  'mtd': { sp:14, spP:15, cv:26, rv:32, rvP:33, cl:46 },
-  'lm':  { sp:19, spP:20, cv:27, rv:34, rvP:35, cl:47 },
-  '3m':  { sp:52, spP:53, cv:57, rv:58, rvP:59, cl:62 }
+  '7d':  { sp:4,  spP:5,  spYoy:7,  cv:24, rv:28, rvP:29, cl:44 },
+  '30d': { sp:9,  spP:10, spYoy:12, cv:25, rv:30, rvP:31, cl:45 },
+  'mtd': { sp:14, spP:15, spYoy:17, cv:26, rv:32, rvP:33, cl:46 },
+  'lm':  { sp:19, spP:20, spYoy:22, cv:27, rv:34, rvP:35, cl:47 },
+  '3m':  { sp:52, spP:53, spYoy:55, cv:57, rv:58, rvP:59, cl:62 }
 };
 // Campaign Performance sheet
 var CM = {
@@ -262,11 +263,15 @@ function renderKPIs(range) {
   }
 
   // Totals from Daily Performance (both accounts summed)
-  var sp=0, spP=0, cv=0, rv=0, rvP=0, cl=0;
+  var sp=0, spP=0, spYoyAmt=0, cv=0, rv=0, rvP=0, cl=0;
   dailyRows.forEach(function(r) {
-    sp  += n(r[dm.sp]);  spP += n(r[dm.spP]);
-    cv  += n(r[dm.cv]);  rv  += n(r[dm.rv]);
-    rvP += n(r[dm.rvP]); cl  += n(r[dm.cl]);
+    sp       += n(r[dm.sp]);
+    spP      += n(r[dm.spP]);
+    spYoyAmt += n(r[dm.spYoy]);
+    cv       += n(r[dm.cv]);
+    rv       += n(r[dm.rv]);
+    rvP      += n(r[dm.rvP]);
+    cl       += n(r[dm.cl]);
   });
 
   // Impressions from Campaign Performance (not stored in Daily Performance)
@@ -279,27 +284,32 @@ function renderKPIs(range) {
   var cpc    = cl > 0 ? sp / cl : 0;
   var ctr    = im > 0 ? cl / im : 0;
   var cvrate = cl > 0 ? cv / cl : 0;
-  var spPop  = spP > 0 ? (sp - spP) / spP : null;
-  var rvPop  = rvP > 0 ? (rv - rvP) / rvP : null;
+
+  // Comparisons — only Spend has both PoP and YoY; Revenue has PoP
+  var spPop = spP      > 0 ? (sp - spP)      / spP      : null;
+  var spYoy = spYoyAmt > 0 ? (sp - spYoyAmt) / spYoyAmt : null;
+  var rvPop = rvP      > 0 ? (rv - rvP)      / rvP      : null;
 
   var cards = [
-    { l:'Impressions', v:int(im),                  pop:null,  c:'#37474f', bg:'#eceff1' },
-    { l:'Clicks',      v:int(cl),                  pop:null,  c:'#4a148c', bg:'#f3e5f5' },
-    { l:'Spend',       v:aud(sp),                  pop:spPop, c:'#0d47a1', bg:'#e3f2fd' },
-    { l:'Avg CPC',     v:audD(cpc),                pop:null,  c:'#006064', bg:'#e0f7fa' },
-    { l:'CTR',         v:pct(ctr),                 pop:null,  c:'#4e342e', bg:'#fbe9e7' },
-    { l:'Conversions', v:int(cv),                  pop:null,  c:'#1b5e20', bg:'#e8f5e9' },
-    { l:'CPA',         v:cpa > 0 ? aud(cpa) : '—', pop:null, c:'#880e4f', bg:'#fce4ec' },
-    { l:'Conv Rate',   v:pct(cvrate),              pop:null,  c:'#1a237e', bg:'#e8eaf6' },
-    { l:'Revenue',     v:aud(rv),                  pop:rvPop, c:'#0d47a1', bg:'#e3f2fd' },
-    { l:'ROAS',        v:roas.toFixed(2) + 'x',    pop:null,  c:'#e65100', bg:'#fff3e0' }
+    { l:'Impressions', v:int(im),                   pop:null,  yoy:null,  c:'#37474f', bg:'#eceff1' },
+    { l:'Clicks',      v:int(cl),                   pop:null,  yoy:null,  c:'#4a148c', bg:'#f3e5f5' },
+    { l:'Spend',       v:aud(sp),                   pop:spPop, yoy:spYoy, c:'#0d47a1', bg:'#e3f2fd' },
+    { l:'Avg CPC',     v:audD(cpc),                 pop:null,  yoy:null,  c:'#006064', bg:'#e0f7fa' },
+    { l:'CTR',         v:pct(ctr),                  pop:null,  yoy:null,  c:'#4e342e', bg:'#fbe9e7' },
+    { l:'Conversions', v:int(cv),                   pop:null,  yoy:null,  c:'#1b5e20', bg:'#e8f5e9' },
+    { l:'CPA',         v:cpa > 0 ? aud(cpa) : '—', pop:null,  yoy:null,  c:'#880e4f', bg:'#fce4ec' },
+    { l:'Conv Rate',   v:pct(cvrate),               pop:null,  yoy:null,  c:'#1a237e', bg:'#e8eaf6' },
+    { l:'Revenue',     v:aud(rv),                   pop:rvPop, yoy:null,  c:'#0d47a1', bg:'#e3f2fd' },
+    { l:'ROAS',        v:roas.toFixed(2) + 'x',     pop:null,  yoy:null,  c:'#e65100', bg:'#fff3e0' }
   ];
 
   document.getElementById('kpi-grid').innerHTML = cards.map(function(c) {
+    var popStr = c.pop !== null ? 'PoP ' + pctHtml(c.pop) : '<span class="neu">PoP —</span>';
+    var yoyStr = c.yoy !== null ? 'YoY ' + pctHtml(c.yoy) : '<span class="neu">YoY —</span>';
     return '<div class="kpi-card" style="border-left-color:' + c.c + ';background:' + c.bg + '">' +
       '<div class="kpi-label" style="color:' + c.c + '">' + c.l + '</div>' +
       '<div class="kpi-value">' + c.v + '</div>' +
-      '<div class="kpi-comps">' + (c.pop !== null ? 'PoP ' + pctHtml(c.pop) : '<span class="neu">—</span>') + '</div>' +
+      '<div class="kpi-comps">' + popStr + ' &nbsp; ' + yoyStr + '</div>' +
       '</div>';
   }).join('');
 }
@@ -387,12 +397,11 @@ function renderConversions(range) {
   });
 
   var sorted = Object.keys(by)
-    .filter(function(k) { return by[k].cv > 0; })
-    .sort(function(a, b) { return by[b].cv - by[a].cv; });
+    .sort(function(a, b) { return by[b].cv - by[a].cv; }); // show all, including 0
 
   if (!sorted.length) {
     document.getElementById('conv-body').innerHTML =
-      '<tr><td colspan="5" style="text-align:center;padding:20px;color:#80868b">No conversion data yet — run refreshConversionDetails() first</td></tr>';
+      '<tr><td colspan="5" style="text-align:center;padding:20px;color:#80868b">No conversion data yet — run refreshConversionDetails() in Apps Script first</td></tr>';
     document.getElementById('conv-foot').innerHTML = '';
     return;
   }
