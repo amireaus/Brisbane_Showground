@@ -56,6 +56,15 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
 .pos { color: #137333; font-weight: 700; }
 .neg { color: #c5221f; font-weight: 700; }
 .neu { color: #80868b; }
+
+/* Phone call card */
+.phone-card { background: white; border-radius: 8px; padding: 16px 20px; border-left: 4px solid #00897b; margin-bottom: 4px; display: flex; flex-direction: column; gap: 8px; }
+.phone-card-inner { display: flex; align-items: center; gap: 16px; }
+.phone-icon { font-size: 28px; color: #00897b; line-height: 1; }
+.phone-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #00897b; margin-bottom: 4px; }
+.phone-value { font-size: 28px; font-weight: 700; color: #202124; line-height: 1.1; margin-bottom: 6px; }
+.phone-comps { font-size: 12px; color: #80868b; }
+.phone-note { font-size: 11px; color: #80868b; background: #e0f2f1; border-radius: 4px; padding: 6px 10px; }
 </style>
 </head>
 <body>
@@ -87,6 +96,10 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
     <!-- 10 KPI cards -->
     <div class="section-label">Key Metrics — All Accounts Combined</div>
     <div class="kpi-grid" id="kpi-grid"></div>
+
+    <!-- Phone Calls KPI -->
+    <div class="section-label">Phone Call Conversions</div>
+    <div id="phone-card-wrap"></div>
 
     <!-- Campaign table -->
     <div class="section-label">Campaign Split</div>
@@ -127,7 +140,8 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
         <thead>
           <tr>
             <th>Conversion Action</th>
-            <th class="r">Conversions</th>
+            <th class="r">All Conv</th>
+            <th class="r">Conv (&gt;30s)</th>
             <th class="r">PoP %</th>
             <th class="r">YoY %</th>
             <th class="r">Revenue</th>
@@ -190,12 +204,13 @@ var CM = {
   '3m':  { sp:24, cv:25, rv:26, cl:27, im:28 }
 };
 // Conversion Details sheet
+// cv = all_conversions, qcv = qualified conversions (metrics.conversions, respects min call duration)
 var CONVM = {
-  '7d':  { cv:9,  pop:11, yoy:13, rv:24 },
-  '30d': { cv:14, pop:16, yoy:18, rv:24 },
-  'mtd': { cv:4,  pop:6,  yoy:8,  rv:24 },
-  'lm':  { cv:19, pop:21, yoy:23, rv:29 },
-  '3m':  { cv:34, pop:36, yoy:38, rv:39 }
+  '7d':  { cv:9,  pop:11, yoy:13, rv:24, qcv:45 },
+  '30d': { cv:14, pop:16, yoy:18, rv:24, qcv:46 },
+  'mtd': { cv:4,  pop:6,  yoy:8,  rv:24, qcv:44 },
+  'lm':  { cv:19, pop:21, yoy:23, rv:29, qcv:47 },
+  '3m':  { cv:34, pop:36, yoy:38, rv:39, qcv:48 }
 };
 
 // ── Helpers ────────────────────────────────────────────
@@ -252,6 +267,7 @@ function loadData() {
 function renderAll() {
   var range = document.getElementById('range-select').value;
   renderKPIs(range);
+  renderPhoneCalls(range);
   renderCampaigns(range);
   renderConversions(range);
   renderCharts();
@@ -332,6 +348,44 @@ function renderKPIs(range) {
   }).join('');
 }
 
+// ── Phone call conversions card ────────────────────────
+function renderPhoneCalls(range) {
+  var allRows = latestRows(dashData.conversions || []);
+  var m = CONVM[range];
+
+  // Match conversion actions containing "call" or "phone" (case-insensitive)
+  var phoneRows = allRows.filter(function(r) {
+    var name = String(r[3] || '').toLowerCase();
+    return name.indexOf('call') !== -1 || name.indexOf('phone') !== -1;
+  });
+
+  var cv = 0, popSum = 0, yoySum = 0, count = 0;
+  phoneRows.forEach(function(r) {
+    cv     += n(r[m.cv]);
+    popSum += n(r[m.pop]);
+    yoySum += n(r[m.yoy]);
+    count++;
+  });
+
+  var avgPop = count > 0 ? popSum / count : 0;
+  var avgYoy = count > 0 ? yoySum / count : 0;
+  var popStr = count > 0 ? 'PoP ' + pctHtml(avgPop) : '<span class="neu">PoP —</span>';
+  var yoyStr = count > 0 ? 'YoY ' + pctHtml(avgYoy) : '<span class="neu">YoY —</span>';
+
+  document.getElementById('phone-card-wrap').innerHTML =
+    '<div class="phone-card">' +
+      '<div class="phone-card-inner">' +
+        '<div class="phone-icon">&#9990;</div>' +
+        '<div>' +
+          '<div class="phone-label">Phone Call Conversions</div>' +
+          '<div class="phone-value">' + int(cv) + ' calls</div>' +
+          '<div class="phone-comps">' + popStr + ' &nbsp;&nbsp; ' + yoyStr + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="phone-note">&#9432;&nbsp; Shows all phone calls. Only calls lasting more than 30 seconds count as conversions in the main KPI total. Ensure your Google Ads call conversion action has the minimum call duration set to 30 seconds.</div>' +
+    '</div>';
+}
+
 // ── Campaign table ──────────────────────────────────────
 function renderCampaigns(range) {
   var rows = latestRows(dashData.campaigns || []);
@@ -410,8 +464,9 @@ function renderConversions(range) {
 
   rows.forEach(function(r) {
     var action = r[3] || '(unknown)';
-    if (!by[action]) by[action] = { cv:0, popSum:0, yoySum:0, rv:0, count:0 };
+    if (!by[action]) by[action] = { cv:0, qcv:0, popSum:0, yoySum:0, rv:0, count:0 };
     by[action].cv     += n(r[m.cv]);
+    by[action].qcv    += n(r[m.qcv]);
     by[action].popSum += n(r[m.pop]);
     by[action].yoySum += n(r[m.yoy]);
     by[action].rv     += n(r[m.rv]);
@@ -423,20 +478,21 @@ function renderConversions(range) {
 
   if (!sorted.length) {
     document.getElementById('conv-body').innerHTML =
-      '<tr><td colspan="5" style="text-align:center;padding:20px;color:#80868b">No conversion data yet — run refreshConversionDetails() in Apps Script first</td></tr>';
+      '<tr><td colspan="6" style="text-align:center;padding:20px;color:#80868b">No conversion data yet — run refreshConversionDetails() in Apps Script first</td></tr>';
     document.getElementById('conv-foot').innerHTML = '';
     return;
   }
 
-  var tcv = 0, trv = 0;
+  var tcv = 0, tqcv = 0, trv = 0;
   document.getElementById('conv-body').innerHTML = sorted.map(function(action) {
     var d = by[action];
-    tcv += d.cv; trv += d.rv;
+    tcv += d.cv; tqcv += d.qcv; trv += d.rv;
     var avgPop = d.count > 0 ? d.popSum / d.count : 0;
     var avgYoy = d.count > 0 ? d.yoySum / d.count : 0;
     return '<tr>' +
       '<td class="cn" title="' + action + '">' + action + '</td>' +
       '<td class="r">' + int(d.cv) + '</td>' +
+      '<td class="r">' + int(d.qcv) + '</td>' +
       '<td class="r">' + pctHtml(avgPop) + '</td>' +
       '<td class="r">' + pctHtml(avgYoy) + '</td>' +
       '<td class="r">' + (d.rv > 0 ? aud(d.rv) : '—') + '</td>' +
@@ -446,6 +502,7 @@ function renderConversions(range) {
   document.getElementById('conv-foot').innerHTML =
     '<tr><td>TOTAL</td>' +
     '<td class="r">' + int(tcv) + '</td>' +
+    '<td class="r">' + int(tqcv) + '</td>' +
     '<td class="r">—</td><td class="r">—</td>' +
     '<td class="r">' + (trv > 0 ? aud(trv) : '—') + '</td></tr>';
 }
