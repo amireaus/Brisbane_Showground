@@ -9,13 +9,15 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Arial, sans-serif; background: #f0f4f9; color: #202124; }
 
-header { background: #1a2233; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+header { background: #1a2233; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 header h1 { color: white; font-size: 17px; font-weight: 600; }
 header .sub { color: #9aa0a6; font-size: 12px; margin-top: 2px; }
 
-.controls { background: white; padding: 10px 24px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #dadce0; }
+.controls { background: white; padding: 10px 24px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #dadce0; flex-wrap: wrap; }
 .controls label { font-size: 13px; font-weight: 600; }
 #range-select { border: 1px solid #dadce0; border-radius: 4px; padding: 6px 12px; font-size: 14px; color: #1a73e8; font-weight: 600; background: #e8f0fe; cursor: pointer; }
+.refresh-btn { margin-left: auto; background: #1a73e8; color: white; border: none; padding: 6px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; }
+.refresh-btn:hover { background: #1558b0; }
 
 main { padding: 18px 24px; max-width: 1440px; margin: 0 auto; }
 
@@ -55,7 +57,8 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
 .acc-metric .ml { font-size: 10px; color: #80868b; text-transform: uppercase; }
 .acc-metric .mv { font-size: 17px; font-weight: 700; }
 
-.no-data { text-align: center; padding: 20px; color: #80868b; }
+.loading { text-align: center; padding: 60px; color: #80868b; font-size: 15px; }
+.error { background: #fce4ec; color: #c5221f; border-radius: 8px; padding: 14px 18px; font-size: 13px; margin-bottom: 12px; }
 .footer { text-align: center; padding: 24px; font-size: 12px; color: #80868b; }
 </style>
 </head>
@@ -64,7 +67,7 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
 <header>
   <div>
     <h1>Brisbane Showgrounds &middot; Google Ads Dashboard</h1>
-    <div class="sub" id="last-pull"></div>
+    <div class="sub" id="last-pull">Loading data…</div>
   </div>
 </header>
 
@@ -77,53 +80,64 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
     <option value="lm">Last Month</option>
     <option value="3m">Last 3 Months</option>
   </select>
+  <button class="refresh-btn" onclick="loadData()">&#8635; Refresh</button>
 </div>
 
 <main>
-  <div class="section-label">Key Metrics</div>
-  <div class="kpi-grid" id="kpi-grid"></div>
+  <div id="error-box" class="error" style="display:none"></div>
+  <div id="loading" class="loading">Fetching latest data…</div>
+  <div id="content" style="display:none">
 
-  <div class="section-label">Campaign Split</div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Campaign</th>
-          <th class="r">Spend</th>
-          <th class="r">Conv</th>
-          <th class="r">Revenue</th>
-          <th class="r">ROAS</th>
-          <th class="r">CPA</th>
-          <th class="r">Clicks</th>
-          <th class="r">Impr</th>
-        </tr>
-      </thead>
-      <tbody id="camp-body"></tbody>
-      <tfoot id="camp-foot"></tfoot>
-    </table>
+    <div class="section-label">Key Metrics</div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <div class="section-label">Campaign Split</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Campaign</th>
+            <th class="r">Spend</th>
+            <th class="r">Conv</th>
+            <th class="r">Revenue</th>
+            <th class="r">ROAS</th>
+            <th class="r">CPA</th>
+            <th class="r">Clicks</th>
+            <th class="r">Impr</th>
+          </tr>
+        </thead>
+        <tbody id="camp-body"></tbody>
+        <tfoot id="camp-foot"></tfoot>
+      </table>
+    </div>
+
+    <div class="section-label">Monthly Trend &mdash; Last 12 Months</div>
+    <div class="chart-wrap">
+      <div class="chart-title">Spend &amp; Revenue</div>
+      <canvas id="trend-chart" height="80"></canvas>
+    </div>
+
+    <div class="section-label">Account Split</div>
+    <div class="acc-grid" id="acc-grid"></div>
+
   </div>
-
-  <div class="section-label">Monthly Trend &mdash; Last 12 Months</div>
-  <div class="chart-wrap">
-    <div class="chart-title">Spend &amp; Revenue</div>
-    <canvas id="trend-chart" height="80"></canvas>
-  </div>
-
-  <div class="section-label">Account Split</div>
-  <div class="acc-grid" id="acc-grid"></div>
 </main>
 
-<div class="footer">
-  Brisbane Showgrounds &middot; Google Ads Dashboard &middot; Data updates daily at 5am AEST
-</div>
+<div class="footer">Brisbane Showgrounds &middot; Google Ads Dashboard &middot; Data updates daily at 5am AEST</div>
 
 <script>
-// Data embedded server-side by doGet() in 6_Brisbane_WebApp.gs
-var RAW  = <?= data ?>;
-var data = { daily: RAW.daily, campaigns: RAW.campaigns, monthly: RAW.monthly };
+// ═══════════════════════════════════════════════════════════
+//  CONFIG
+//  After deploying 6_Brisbane_WebApp.gs as a Web App,
+//  paste the deployment URL below.
+// ═══════════════════════════════════════════════════════════
+var API_URL = 'YOUR_APPS_SCRIPT_DEPLOYMENT_URL_HERE';
+
+// ── State ────────────────────────────────────────────────
+var dashData   = {};
 var trendChart = null;
 
-// ── Column index maps (0-based) ──────────────────────────────────────────────
+// ── Column maps (0-based) ────────────────────────────────
 var DM = {
   '7d':  { sp:4,  spP:5,  cv:24, rv:28, rvP:29, cl:44 },
   '30d': { sp:9,  spP:10, cv:25, rv:30, rvP:31, cl:45 },
@@ -139,7 +153,7 @@ var CM = {
   '3m':  { sp:24, cv:25, rv:26, cl:27, im:28 }
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────
 function n(v)   { return parseFloat(v) || 0; }
 function aud(v) { return '$' + n(v).toLocaleString('en-AU', { maximumFractionDigits: 0 }); }
 function int(v) { return n(v).toLocaleString('en-AU', { maximumFractionDigits: 0 }); }
@@ -164,7 +178,32 @@ function latestRows(rows) {
   });
 }
 
-// ── Render all ───────────────────────────────────────────────────────────────
+// ── Load data ────────────────────────────────────────────
+function loadData() {
+  document.getElementById('loading').style.display  = 'block';
+  document.getElementById('content').style.display  = 'none';
+  document.getElementById('error-box').style.display = 'none';
+
+  fetch(API_URL)
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      dashData = data;
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+      renderAll();
+    })
+    .catch(function(e) {
+      document.getElementById('loading').style.display = 'none';
+      var eb = document.getElementById('error-box');
+      eb.textContent = '⚠ Could not load data: ' + e.message + '. Check that the Apps Script is deployed correctly.';
+      eb.style.display = 'block';
+    });
+}
+
+// ── Render all ───────────────────────────────────────────
 function renderAll() {
   var range = document.getElementById('range-select').value;
   renderKPIs(range);
@@ -173,9 +212,9 @@ function renderAll() {
   renderAccounts(range);
 }
 
-// ── KPI cards ────────────────────────────────────────────────────────────────
+// ── KPI cards ────────────────────────────────────────────
 function renderKPIs(range) {
-  var rows = latestRows(data.daily);
+  var rows = latestRows(dashData.daily || []);
   var m    = DM[range];
 
   if (rows.length && rows[0][0]) {
@@ -185,12 +224,9 @@ function renderKPIs(range) {
 
   var sp=0, spP=0, cv=0, rv=0, rvP=0, cl=0;
   rows.forEach(function(r) {
-    sp  += n(r[m.sp]);
-    spP += n(r[m.spP]);
-    cv  += n(r[m.cv]);
-    rv  += n(r[m.rv]);
-    rvP += n(r[m.rvP]);
-    cl  += n(r[m.cl]);
+    sp  += n(r[m.sp]);  spP += n(r[m.spP]);
+    cv  += n(r[m.cv]);  rv  += n(r[m.rv]);
+    rvP += n(r[m.rvP]); cl  += n(r[m.cl]);
   });
 
   var spPop = spP > 0 ? (sp - spP) / spP : null;
@@ -199,12 +235,12 @@ function renderKPIs(range) {
   var cpa   = cv  > 0 ? sp / cv : 0;
 
   var cards = [
-    { l:'Spend',       v:aud(sp),              pop:spPop, c:'#0d47a1', bg:'#e3f2fd' },
-    { l:'Conversions', v:int(cv),              pop:null,  c:'#1b5e20', bg:'#e8f5e9' },
-    { l:'CPA',         v:aud(cpa),             pop:null,  c:'#880e4f', bg:'#fce4ec' },
-    { l:'Revenue',     v:aud(rv),              pop:rvPop, c:'#0d47a1', bg:'#e3f2fd' },
-    { l:'ROAS',        v:roas.toFixed(2) + 'x',pop:null, c:'#e65100', bg:'#fff3e0' },
-    { l:'Clicks',      v:int(cl),              pop:null,  c:'#4a148c', bg:'#f3e5f5' }
+    { l:'Spend',       v:aud(sp),               pop:spPop, c:'#0d47a1', bg:'#e3f2fd' },
+    { l:'Conversions', v:int(cv),               pop:null,  c:'#1b5e20', bg:'#e8f5e9' },
+    { l:'CPA',         v:aud(cpa),              pop:null,  c:'#880e4f', bg:'#fce4ec' },
+    { l:'Revenue',     v:aud(rv),               pop:rvPop, c:'#0d47a1', bg:'#e3f2fd' },
+    { l:'ROAS',        v:roas.toFixed(2) + 'x', pop:null,  c:'#e65100', bg:'#fff3e0' },
+    { l:'Clicks',      v:int(cl),               pop:null,  c:'#4a148c', bg:'#f3e5f5' }
   ];
 
   document.getElementById('kpi-grid').innerHTML = cards.map(function(c) {
@@ -216,20 +252,17 @@ function renderKPIs(range) {
   }).join('');
 }
 
-// ── Campaign table ────────────────────────────────────────────────────────────
+// ── Campaign table ────────────────────────────────────────
 function renderCampaigns(range) {
-  var rows = latestRows(data.campaigns);
+  var rows = latestRows(dashData.campaigns || []);
   var m    = CM[range];
   var by   = {};
 
   rows.forEach(function(r) {
     var nm = r[3] || '(unknown)';
     if (!by[nm]) by[nm] = { sp:0, cv:0, rv:0, cl:0, im:0 };
-    by[nm].sp += n(r[m.sp]);
-    by[nm].cv += n(r[m.cv]);
-    by[nm].rv += n(r[m.rv]);
-    by[nm].cl += n(r[m.cl]);
-    by[nm].im += n(r[m.im]);
+    by[nm].sp += n(r[m.sp]); by[nm].cv += n(r[m.cv]);
+    by[nm].rv += n(r[m.rv]); by[nm].cl += n(r[m.cl]); by[nm].im += n(r[m.im]);
   });
 
   var sorted = Object.keys(by)
@@ -238,16 +271,15 @@ function renderCampaigns(range) {
 
   if (!sorted.length) {
     document.getElementById('camp-body').innerHTML =
-      '<tr><td colspan="8" class="no-data">No campaign data yet — run refreshCampaignData() first</td></tr>';
+      '<tr><td colspan="8" style="text-align:center;padding:20px;color:#80868b">No campaign data yet — run refreshCampaignData() first</td></tr>';
     document.getElementById('camp-foot').innerHTML = '';
     return;
   }
 
   var tsp=0, tcv=0, trv=0, tcl=0, tim=0;
-
   document.getElementById('camp-body').innerHTML = sorted.map(function(nm) {
     var d = by[nm];
-    tsp += d.sp; tcv += d.cv; trv += d.rv; tcl += d.cl; tim += d.im;
+    tsp+=d.sp; tcv+=d.cv; trv+=d.rv; tcl+=d.cl; tim+=d.im;
     var r = d.sp > 0 ? d.rv / d.sp : 0;
     var c = d.cv > 0 ? d.sp / d.cv : 0;
     return '<tr>' +
@@ -258,26 +290,22 @@ function renderCampaigns(range) {
       '<td class="r">' + r.toFixed(2) + 'x</td>' +
       '<td class="r">' + (d.cv > 0 ? aud(c) : '—') + '</td>' +
       '<td class="r">' + int(d.cl) + '</td>' +
-      '<td class="r">' + int(d.im) + '</td>' +
-      '</tr>';
+      '<td class="r">' + int(d.im) + '</td></tr>';
   }).join('');
 
   var tr = tsp > 0 ? trv / tsp : 0;
   var tc = tcv > 0 ? tsp / tcv : 0;
   document.getElementById('camp-foot').innerHTML =
     '<tr><td>TOTAL</td>' +
-    '<td class="r">' + aud(tsp) + '</td>' +
-    '<td class="r">' + int(tcv)  + '</td>' +
-    '<td class="r">' + aud(trv)  + '</td>' +
-    '<td class="r">' + tr.toFixed(2) + 'x</td>' +
+    '<td class="r">' + aud(tsp) + '</td><td class="r">' + int(tcv)  + '</td>' +
+    '<td class="r">' + aud(trv) + '</td><td class="r">' + tr.toFixed(2) + 'x</td>' +
     '<td class="r">' + (tcv > 0 ? aud(tc) : '—') + '</td>' +
-    '<td class="r">' + int(tcl)  + '</td>' +
-    '<td class="r">' + int(tim)  + '</td></tr>';
+    '<td class="r">' + int(tcl) + '</td><td class="r">' + int(tim) + '</td></tr>';
 }
 
-// ── Monthly trend chart ───────────────────────────────────────────────────────
+// ── Monthly trend chart ───────────────────────────────────
 function renderChart() {
-  var rows = (data.monthly || []).slice(1);
+  var rows = (dashData.monthly || []).slice(1);
   if (!rows.length) return;
 
   var labels = rows.map(function(r) { return String(r[0] || ''); });
@@ -285,7 +313,6 @@ function renderChart() {
   var rev    = rows.map(function(r) { return n(r[16]); });
 
   if (trendChart) trendChart.destroy();
-
   trendChart = new Chart(document.getElementById('trend-chart'), {
     type: 'line',
     data: {
@@ -299,36 +326,24 @@ function renderChart() {
       responsive: true,
       plugins: {
         legend: { position: 'top' },
-        tooltip: {
-          callbacks: {
-            label: function(ctx) { return ctx.dataset.label + ': ' + aud(ctx.parsed.y); }
-          }
-        }
+        tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + aud(ctx.parsed.y); } } }
       },
-      scales: {
-        y: {
-          ticks: {
-            callback: function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v); }
-          }
-        }
-      }
+      scales: { y: { ticks: { callback: function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v); } } } }
     }
   });
 }
 
-// ── Account split ─────────────────────────────────────────────────────────────
+// ── Account split ─────────────────────────────────────────
 function renderAccounts(range) {
-  var rows = latestRows(data.daily);
+  var rows = latestRows(dashData.daily || []);
   var m    = DM[range];
   var ac   = {};
 
   rows.forEach(function(r) {
     var nm = r[1] || 'Unknown';
     if (!ac[nm]) ac[nm] = { sp:0, cv:0, rv:0, cl:0 };
-    ac[nm].sp += n(r[m.sp]);
-    ac[nm].cv += n(r[m.cv]);
-    ac[nm].rv += n(r[m.rv]);
-    ac[nm].cl += n(r[m.cl]);
+    ac[nm].sp += n(r[m.sp]); ac[nm].cv += n(r[m.cv]);
+    ac[nm].rv += n(r[m.rv]); ac[nm].cl += n(r[m.cl]);
   });
 
   document.getElementById('acc-grid').innerHTML = Object.keys(ac).map(function(nm) {
@@ -338,18 +353,18 @@ function renderAccounts(range) {
     return '<div class="acc-card">' +
       '<div class="acc-name">' + nm + '</div>' +
       '<div class="acc-metrics">' +
-        '<div class="acc-metric"><div class="ml">Spend</div><div class="mv">'   + aud(d.sp)           + '</div></div>' +
-        '<div class="acc-metric"><div class="ml">Conv</div><div class="mv">'    + int(d.cv)            + '</div></div>' +
-        '<div class="acc-metric"><div class="ml">Revenue</div><div class="mv">' + aud(d.rv)           + '</div></div>' +
+        '<div class="acc-metric"><div class="ml">Spend</div><div class="mv">'   + aud(d.sp)            + '</div></div>' +
+        '<div class="acc-metric"><div class="ml">Conv</div><div class="mv">'    + int(d.cv)             + '</div></div>' +
+        '<div class="acc-metric"><div class="ml">Revenue</div><div class="mv">' + aud(d.rv)            + '</div></div>' +
         '<div class="acc-metric"><div class="ml">ROAS</div><div class="mv">'    + roas.toFixed(2) + 'x</div></div>' +
         '<div class="acc-metric"><div class="ml">CPA</div><div class="mv">'     + (d.cv > 0 ? aud(cpa) : '—') + '</div></div>' +
-        '<div class="acc-metric"><div class="ml">Clicks</div><div class="mv">'  + int(d.cl)           + '</div></div>' +
+        '<div class="acc-metric"><div class="ml">Clicks</div><div class="mv">'  + int(d.cl)            + '</div></div>' +
       '</div></div>';
   }).join('');
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-window.onload = function() { renderAll(); };
+// ── Start ─────────────────────────────────────────────────
+window.onload = function() { loadData(); };
 </script>
 </body>
 </html>
