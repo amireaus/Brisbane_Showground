@@ -24,18 +24,16 @@ main { padding: 18px 24px; max-width: 1440px; margin: 0 auto; }
 .section-label { font-size: 11px; font-weight: 700; color: #80868b; text-transform: uppercase; padding: 16px 0 8px; border-top: 1px solid #dadce0; margin-top: 4px; }
 .section-label:first-child { border-top: none; padding-top: 0; }
 
-.kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
-@media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 500px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
-
+/* KPI cards — 5 per row, 2 rows */
+.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+@media (max-width: 1000px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 .kpi-card { background: white; border-radius: 8px; padding: 16px 14px; border-left: 4px solid #1a73e8; }
 .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
 .kpi-value { font-size: 22px; font-weight: 700; color: #202124; margin-bottom: 8px; line-height: 1.1; }
 .kpi-comps { font-size: 12px; color: #80868b; }
-.kpi-comps .pos { color: #137333; font-weight: 700; }
-.kpi-comps .neg { color: #c5221f; font-weight: 700; }
-.kpi-comps .neu { color: #80868b; }
 
+/* Tables */
 .table-wrap { background: white; border-radius: 8px; overflow: auto; margin-bottom: 4px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead tr { background: #f0f4f9; }
@@ -43,23 +41,21 @@ th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; co
 th.r, td.r { text-align: right; }
 td { padding: 9px 14px; border-top: 1px solid #f0f4f9; }
 tr:hover td { background: #f8f9fa; }
-.cn { font-weight: 500; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cn { font-weight: 500; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0; }
 
-.chart-wrap { background: white; border-radius: 8px; padding: 20px; margin-bottom: 4px; }
-.chart-title { font-size: 13px; font-weight: 600; margin-bottom: 14px; }
-
-.acc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 600px) { .acc-grid { grid-template-columns: 1fr; } }
-.acc-card { background: white; border-radius: 8px; padding: 16px; }
-.acc-name { font-size: 13px; font-weight: 700; border-bottom: 3px solid #1a73e8; padding-bottom: 8px; margin-bottom: 12px; }
-.acc-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.acc-metric .ml { font-size: 10px; color: #80868b; text-transform: uppercase; }
-.acc-metric .mv { font-size: 17px; font-weight: 700; }
+/* Charts — 3 side by side */
+.chart-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 4px; }
+@media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } }
+.chart-wrap { background: white; border-radius: 8px; padding: 20px; }
+.chart-title { font-size: 13px; font-weight: 600; margin-bottom: 14px; color: #202124; }
 
 .loading { text-align: center; padding: 60px; color: #80868b; font-size: 15px; }
 .error { background: #fce4ec; color: #c5221f; border-radius: 8px; padding: 14px 18px; font-size: 13px; margin-bottom: 12px; }
 .footer { text-align: center; padding: 24px; font-size: 12px; color: #80868b; }
+.pos { color: #137333; font-weight: 700; }
+.neg { color: #c5221f; font-weight: 700; }
+.neu { color: #80868b; }
 </style>
 </head>
 <body>
@@ -88,9 +84,11 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
   <div id="loading" class="loading">Fetching latest data…</div>
   <div id="content" style="display:none">
 
-    <div class="section-label">Key Metrics</div>
+    <!-- 10 KPI cards -->
+    <div class="section-label">Key Metrics — All Accounts Combined</div>
     <div class="kpi-grid" id="kpi-grid"></div>
 
+    <!-- Campaign table -->
     <div class="section-label">Campaign Split</div>
     <div class="table-wrap">
       <table>
@@ -98,12 +96,15 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
           <tr>
             <th>Campaign</th>
             <th class="r">Spend</th>
+            <th class="r">Impr</th>
+            <th class="r">Clicks</th>
+            <th class="r">CTR</th>
+            <th class="r">Avg CPC</th>
             <th class="r">Conv</th>
+            <th class="r">Conv Rate</th>
+            <th class="r">CPA</th>
             <th class="r">Revenue</th>
             <th class="r">ROAS</th>
-            <th class="r">CPA</th>
-            <th class="r">Clicks</th>
-            <th class="r">Impr</th>
           </tr>
         </thead>
         <tbody id="camp-body"></tbody>
@@ -111,14 +112,40 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
       </table>
     </div>
 
-    <div class="section-label">Monthly Trend &mdash; Last 12 Months</div>
-    <div class="chart-wrap">
-      <div class="chart-title">Spend &amp; Revenue</div>
-      <canvas id="trend-chart" height="80"></canvas>
+    <!-- Conversions by type -->
+    <div class="section-label">Conversions by Type — Google Ads</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Conversion Action</th>
+            <th class="r">Conversions</th>
+            <th class="r">PoP %</th>
+            <th class="r">YoY %</th>
+            <th class="r">Revenue</th>
+          </tr>
+        </thead>
+        <tbody id="conv-body"></tbody>
+        <tfoot id="conv-foot"></tfoot>
+      </table>
     </div>
 
-    <div class="section-label">Account Split</div>
-    <div class="acc-grid" id="acc-grid"></div>
+    <!-- 3 charts -->
+    <div class="section-label">Monthly Trend — Last 12 Months</div>
+    <div class="chart-row">
+      <div class="chart-wrap">
+        <div class="chart-title">Spend</div>
+        <canvas id="chart-spend" height="160"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Conversions</div>
+        <canvas id="chart-conv" height="160"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Cost per Conversion</div>
+        <canvas id="chart-cpa" height="160"></canvas>
+      </div>
+    </div>
 
   </div>
 </main>
@@ -126,18 +153,19 @@ tfoot td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #dadce0;
 <div class="footer">Brisbane Showgrounds &middot; Google Ads Dashboard &middot; Data updates daily at 5am AEST</div>
 
 <script>
-// ═══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 //  CONFIG
-//  After deploying 6_Brisbane_WebApp.gs as a Web App,
-//  paste the deployment URL below.
-// ═══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 var API_URL = 'https://script.google.com/macros/s/AKfycbxRbH17wRA0DEB1R9wMGRVc-NXhyKn0mac96vHr9Kn62Bn2iWd3lGOH7zgTfDF6fZakug/exec';
 
-// ── State ────────────────────────────────────────────────
+// ── State ──────────────────────────────────────────────
 var dashData   = {};
-var trendChart = null;
+var chartSpend = null;
+var chartConv  = null;
+var chartCPA   = null;
 
-// ── Column maps (0-based) ────────────────────────────────
+// ── Column maps (0-based) ──────────────────────────────
+// Daily Performance sheet
 var DM = {
   '7d':  { sp:4,  spP:5,  cv:24, rv:28, rvP:29, cl:44 },
   '30d': { sp:9,  spP:10, cv:25, rv:30, rvP:31, cl:45 },
@@ -145,6 +173,7 @@ var DM = {
   'lm':  { sp:19, spP:20, cv:27, rv:34, rvP:35, cl:47 },
   '3m':  { sp:52, spP:53, cv:57, rv:58, rvP:59, cl:62 }
 };
+// Campaign Performance sheet
 var CM = {
   '7d':  { sp:4,  cv:8,  rv:12, cl:16, im:20 },
   '30d': { sp:5,  cv:9,  rv:13, cl:17, im:21 },
@@ -152,11 +181,21 @@ var CM = {
   'lm':  { sp:7,  cv:11, rv:15, cl:19, im:23 },
   '3m':  { sp:24, cv:25, rv:26, cl:27, im:28 }
 };
+// Conversion Details sheet
+var CONVM = {
+  '7d':  { cv:9,  pop:11, yoy:13, rv:24 },
+  '30d': { cv:14, pop:16, yoy:18, rv:24 },
+  'mtd': { cv:4,  pop:6,  yoy:8,  rv:24 },
+  'lm':  { cv:19, pop:21, yoy:23, rv:29 },
+  '3m':  { cv:34, pop:36, yoy:38, rv:39 }
+};
 
-// ── Helpers ──────────────────────────────────────────────
-function n(v)   { return parseFloat(v) || 0; }
-function aud(v) { return '$' + n(v).toLocaleString('en-AU', { maximumFractionDigits: 0 }); }
-function int(v) { return n(v).toLocaleString('en-AU', { maximumFractionDigits: 0 }); }
+// ── Helpers ────────────────────────────────────────────
+function n(v)    { return parseFloat(v) || 0; }
+function aud(v)  { return '$' + n(v).toLocaleString('en-AU', { maximumFractionDigits: 0 }); }
+function audD(v) { return '$' + n(v).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function int(v)  { return n(v).toLocaleString('en-AU', { maximumFractionDigits: 0 }); }
+function pct(v, decimals) { return (n(v) * 100).toFixed(decimals || 2) + '%'; }
 
 function pctHtml(v) {
   var f = n(v);
@@ -173,18 +212,16 @@ function latestRows(rows) {
     var d = String(r[0] || '').substring(0, 10);
     if (d > mx) mx = d;
   });
-  return body.filter(function(r) {
-    return String(r[0] || '').substring(0, 10) === mx;
-  });
+  return body.filter(function(r) { return String(r[0] || '').substring(0, 10) === mx; });
 }
 
-// ── Load data ────────────────────────────────────────────
+// ── Load data ──────────────────────────────────────────
 function loadData() {
-  document.getElementById('loading').style.display  = 'block';
-  document.getElementById('content').style.display  = 'none';
+  document.getElementById('loading').style.display   = 'block';
+  document.getElementById('content').style.display   = 'none';
   document.getElementById('error-box').style.display = 'none';
 
-  fetch(API_URL)
+  fetch(API_URL, { redirect: 'follow', credentials: 'omit' })
     .then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -198,49 +235,64 @@ function loadData() {
     .catch(function(e) {
       document.getElementById('loading').style.display = 'none';
       var eb = document.getElementById('error-box');
-      eb.textContent = '⚠ Could not load data: ' + e.message + '. Check that the Apps Script is deployed correctly.';
+      eb.textContent = '⚠ Could not load data: ' + e.message + '. Check the Apps Script deployment.';
       eb.style.display = 'block';
     });
 }
 
-// ── Render all ───────────────────────────────────────────
+// ── Render all ─────────────────────────────────────────
 function renderAll() {
   var range = document.getElementById('range-select').value;
   renderKPIs(range);
   renderCampaigns(range);
-  renderChart();
-  renderAccounts(range);
+  renderConversions(range);
+  renderCharts();
 }
 
-// ── KPI cards ────────────────────────────────────────────
+// ── 10 KPI cards ───────────────────────────────────────
 function renderKPIs(range) {
-  var rows = latestRows(dashData.daily || []);
-  var m    = DM[range];
+  var dailyRows = latestRows(dashData.daily     || []);
+  var campRows  = latestRows(dashData.campaigns || []);
+  var dm = DM[range];
+  var cm = CM[range];
 
-  if (rows.length && rows[0][0]) {
+  if (dailyRows.length && dailyRows[0][0]) {
     document.getElementById('last-pull').textContent =
-      'Last pull: ' + String(rows[0][0]).substring(0, 10) + ' AEST';
+      'Last pull: ' + String(dailyRows[0][0]).substring(0, 10) + ' AEST';
   }
 
+  // Totals from Daily Performance (both accounts summed)
   var sp=0, spP=0, cv=0, rv=0, rvP=0, cl=0;
-  rows.forEach(function(r) {
-    sp  += n(r[m.sp]);  spP += n(r[m.spP]);
-    cv  += n(r[m.cv]);  rv  += n(r[m.rv]);
-    rvP += n(r[m.rvP]); cl  += n(r[m.cl]);
+  dailyRows.forEach(function(r) {
+    sp  += n(r[dm.sp]);  spP += n(r[dm.spP]);
+    cv  += n(r[dm.cv]);  rv  += n(r[dm.rv]);
+    rvP += n(r[dm.rvP]); cl  += n(r[dm.cl]);
   });
 
-  var spPop = spP > 0 ? (sp - spP) / spP : null;
-  var rvPop = rvP > 0 ? (rv - rvP) / rvP : null;
-  var roas  = sp  > 0 ? rv / sp : 0;
-  var cpa   = cv  > 0 ? sp / cv : 0;
+  // Impressions from Campaign Performance (not stored in Daily Performance)
+  var im = 0;
+  campRows.forEach(function(r) { im += n(r[cm.im]); });
+
+  // Derived metrics
+  var cpa    = cv > 0 ? sp / cv : 0;
+  var roas   = sp > 0 ? rv / sp : 0;
+  var cpc    = cl > 0 ? sp / cl : 0;
+  var ctr    = im > 0 ? cl / im : 0;
+  var cvrate = cl > 0 ? cv / cl : 0;
+  var spPop  = spP > 0 ? (sp - spP) / spP : null;
+  var rvPop  = rvP > 0 ? (rv - rvP) / rvP : null;
 
   var cards = [
-    { l:'Spend',       v:aud(sp),               pop:spPop, c:'#0d47a1', bg:'#e3f2fd' },
-    { l:'Conversions', v:int(cv),               pop:null,  c:'#1b5e20', bg:'#e8f5e9' },
-    { l:'CPA',         v:aud(cpa),              pop:null,  c:'#880e4f', bg:'#fce4ec' },
-    { l:'Revenue',     v:aud(rv),               pop:rvPop, c:'#0d47a1', bg:'#e3f2fd' },
-    { l:'ROAS',        v:roas.toFixed(2) + 'x', pop:null,  c:'#e65100', bg:'#fff3e0' },
-    { l:'Clicks',      v:int(cl),               pop:null,  c:'#4a148c', bg:'#f3e5f5' }
+    { l:'Impressions', v:int(im),                  pop:null,  c:'#37474f', bg:'#eceff1' },
+    { l:'Clicks',      v:int(cl),                  pop:null,  c:'#4a148c', bg:'#f3e5f5' },
+    { l:'Spend',       v:aud(sp),                  pop:spPop, c:'#0d47a1', bg:'#e3f2fd' },
+    { l:'Avg CPC',     v:audD(cpc),                pop:null,  c:'#006064', bg:'#e0f7fa' },
+    { l:'CTR',         v:pct(ctr),                 pop:null,  c:'#4e342e', bg:'#fbe9e7' },
+    { l:'Conversions', v:int(cv),                  pop:null,  c:'#1b5e20', bg:'#e8f5e9' },
+    { l:'CPA',         v:cpa > 0 ? aud(cpa) : '—', pop:null, c:'#880e4f', bg:'#fce4ec' },
+    { l:'Conv Rate',   v:pct(cvrate),              pop:null,  c:'#1a237e', bg:'#e8eaf6' },
+    { l:'Revenue',     v:aud(rv),                  pop:rvPop, c:'#0d47a1', bg:'#e3f2fd' },
+    { l:'ROAS',        v:roas.toFixed(2) + 'x',    pop:null,  c:'#e65100', bg:'#fff3e0' }
   ];
 
   document.getElementById('kpi-grid').innerHTML = cards.map(function(c) {
@@ -252,7 +304,7 @@ function renderKPIs(range) {
   }).join('');
 }
 
-// ── Campaign table ────────────────────────────────────────
+// ── Campaign table ──────────────────────────────────────
 function renderCampaigns(range) {
   var rows = latestRows(dashData.campaigns || []);
   var m    = CM[range];
@@ -271,99 +323,156 @@ function renderCampaigns(range) {
 
   if (!sorted.length) {
     document.getElementById('camp-body').innerHTML =
-      '<tr><td colspan="8" style="text-align:center;padding:20px;color:#80868b">No campaign data yet — run refreshCampaignData() first</td></tr>';
+      '<tr><td colspan="11" style="text-align:center;padding:20px;color:#80868b">No campaign data yet — run refreshCampaignData() first</td></tr>';
     document.getElementById('camp-foot').innerHTML = '';
     return;
   }
 
   var tsp=0, tcv=0, trv=0, tcl=0, tim=0;
   document.getElementById('camp-body').innerHTML = sorted.map(function(nm) {
-    var d = by[nm];
+    var d   = by[nm];
     tsp+=d.sp; tcv+=d.cv; trv+=d.rv; tcl+=d.cl; tim+=d.im;
-    var r = d.sp > 0 ? d.rv / d.sp : 0;
-    var c = d.cv > 0 ? d.sp / d.cv : 0;
+    var roas   = d.sp > 0 ? d.rv / d.sp : 0;
+    var cpa    = d.cv > 0 ? d.sp / d.cv : 0;
+    var cpc    = d.cl > 0 ? d.sp / d.cl : 0;
+    var ctr    = d.im > 0 ? d.cl / d.im : 0;
+    var cvrate = d.cl > 0 ? d.cv / d.cl : 0;
     return '<tr>' +
       '<td class="cn" title="' + nm + '">' + nm + '</td>' +
-      '<td class="r">' + aud(d.sp) + '</td>' +
-      '<td class="r">' + int(d.cv) + '</td>' +
-      '<td class="r">' + aud(d.rv) + '</td>' +
-      '<td class="r">' + r.toFixed(2) + 'x</td>' +
-      '<td class="r">' + (d.cv > 0 ? aud(c) : '—') + '</td>' +
-      '<td class="r">' + int(d.cl) + '</td>' +
-      '<td class="r">' + int(d.im) + '</td></tr>';
+      '<td class="r">' + aud(d.sp)                         + '</td>' +
+      '<td class="r">' + int(d.im)                         + '</td>' +
+      '<td class="r">' + int(d.cl)                         + '</td>' +
+      '<td class="r">' + pct(ctr)                          + '</td>' +
+      '<td class="r">' + audD(cpc)                         + '</td>' +
+      '<td class="r">' + int(d.cv)                         + '</td>' +
+      '<td class="r">' + pct(cvrate)                       + '</td>' +
+      '<td class="r">' + (d.cv > 0 ? aud(cpa) : '—')      + '</td>' +
+      '<td class="r">' + aud(d.rv)                         + '</td>' +
+      '<td class="r">' + roas.toFixed(2) + 'x'             + '</td></tr>';
   }).join('');
 
-  var tr = tsp > 0 ? trv / tsp : 0;
-  var tc = tcv > 0 ? tsp / tcv : 0;
+  var troas   = tsp > 0 ? trv / tsp : 0;
+  var tcpa    = tcv > 0 ? tsp / tcv : 0;
+  var tcpc    = tcl > 0 ? tsp / tcl : 0;
+  var tctr    = tim > 0 ? tcl / tim : 0;
+  var tcvrate = tcl > 0 ? tcv / tcl : 0;
   document.getElementById('camp-foot').innerHTML =
     '<tr><td>TOTAL</td>' +
-    '<td class="r">' + aud(tsp) + '</td><td class="r">' + int(tcv)  + '</td>' +
-    '<td class="r">' + aud(trv) + '</td><td class="r">' + tr.toFixed(2) + 'x</td>' +
-    '<td class="r">' + (tcv > 0 ? aud(tc) : '—') + '</td>' +
-    '<td class="r">' + int(tcl) + '</td><td class="r">' + int(tim) + '</td></tr>';
+    '<td class="r">' + aud(tsp)                         + '</td>' +
+    '<td class="r">' + int(tim)                         + '</td>' +
+    '<td class="r">' + int(tcl)                         + '</td>' +
+    '<td class="r">' + pct(tctr)                        + '</td>' +
+    '<td class="r">' + audD(tcpc)                       + '</td>' +
+    '<td class="r">' + int(tcv)                         + '</td>' +
+    '<td class="r">' + pct(tcvrate)                     + '</td>' +
+    '<td class="r">' + (tcv > 0 ? aud(tcpa) : '—')     + '</td>' +
+    '<td class="r">' + aud(trv)                         + '</td>' +
+    '<td class="r">' + troas.toFixed(2) + 'x'           + '</td></tr>';
 }
 
-// ── Monthly trend chart ───────────────────────────────────
-function renderChart() {
+// ── Conversions by type table ───────────────────────────
+function renderConversions(range) {
+  var rows = latestRows(dashData.conversions || []);
+  var m    = CONVM[range];
+  var by   = {};
+
+  rows.forEach(function(r) {
+    var action = r[3] || '(unknown)';
+    if (!by[action]) by[action] = { cv:0, popSum:0, yoySum:0, rv:0, count:0 };
+    by[action].cv     += n(r[m.cv]);
+    by[action].popSum += n(r[m.pop]);
+    by[action].yoySum += n(r[m.yoy]);
+    by[action].rv     += n(r[m.rv]);
+    by[action].count++;
+  });
+
+  var sorted = Object.keys(by)
+    .filter(function(k) { return by[k].cv > 0; })
+    .sort(function(a, b) { return by[b].cv - by[a].cv; });
+
+  if (!sorted.length) {
+    document.getElementById('conv-body').innerHTML =
+      '<tr><td colspan="5" style="text-align:center;padding:20px;color:#80868b">No conversion data yet — run refreshConversionDetails() first</td></tr>';
+    document.getElementById('conv-foot').innerHTML = '';
+    return;
+  }
+
+  var tcv = 0, trv = 0;
+  document.getElementById('conv-body').innerHTML = sorted.map(function(action) {
+    var d = by[action];
+    tcv += d.cv; trv += d.rv;
+    var avgPop = d.count > 0 ? d.popSum / d.count : 0;
+    var avgYoy = d.count > 0 ? d.yoySum / d.count : 0;
+    return '<tr>' +
+      '<td class="cn" title="' + action + '">' + action + '</td>' +
+      '<td class="r">' + int(d.cv) + '</td>' +
+      '<td class="r">' + pctHtml(avgPop) + '</td>' +
+      '<td class="r">' + pctHtml(avgYoy) + '</td>' +
+      '<td class="r">' + (d.rv > 0 ? aud(d.rv) : '—') + '</td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('conv-foot').innerHTML =
+    '<tr><td>TOTAL</td>' +
+    '<td class="r">' + int(tcv) + '</td>' +
+    '<td class="r">—</td><td class="r">—</td>' +
+    '<td class="r">' + (trv > 0 ? aud(trv) : '—') + '</td></tr>';
+}
+
+// ── Monthly trend — 3 charts ────────────────────────────
+function renderCharts() {
   var rows = (dashData.monthly || []).slice(1);
   if (!rows.length) return;
 
-  var labels = rows.map(function(r) { return String(r[0] || ''); });
-  var spend  = rows.map(function(r) { return n(r[1]);  });
-  var rev    = rows.map(function(r) { return n(r[16]); });
-
-  if (trendChart) trendChart.destroy();
-  trendChart = new Chart(document.getElementById('trend-chart'), {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [
-        { label:'Spend',   data:spend, borderColor:'#1a73e8', backgroundColor:'rgba(26,115,232,0.08)', borderWidth:2, pointRadius:4, tension:0.3, fill:true },
-        { label:'Revenue', data:rev,   borderColor:'#34a853', backgroundColor:'rgba(52,168,83,0.08)',  borderWidth:2, pointRadius:4, tension:0.3, fill:true }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + aud(ctx.parsed.y); } } }
-      },
-      scales: { y: { ticks: { callback: function(v) { return '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v); } } } }
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var labels = rows.map(function(r) {
+    var v = String(r[0] || '');
+    if (/^\d{4}-\d{2}$/.test(v)) {
+      var p = v.split('-');
+      return MON[parseInt(p[1], 10) - 1] + ' ' + p[0];
     }
-  });
-}
-
-// ── Account split ─────────────────────────────────────────
-function renderAccounts(range) {
-  var rows = latestRows(dashData.daily || []);
-  var m    = DM[range];
-  var ac   = {};
-
-  rows.forEach(function(r) {
-    var nm = r[1] || 'Unknown';
-    if (!ac[nm]) ac[nm] = { sp:0, cv:0, rv:0, cl:0 };
-    ac[nm].sp += n(r[m.sp]); ac[nm].cv += n(r[m.cv]);
-    ac[nm].rv += n(r[m.rv]); ac[nm].cl += n(r[m.cl]);
+    if (v.indexOf('T') > -1) {
+      var d = new Date(v);
+      return MON[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+    }
+    return v;
   });
 
-  document.getElementById('acc-grid').innerHTML = Object.keys(ac).map(function(nm) {
-    var d    = ac[nm];
-    var roas = d.sp > 0 ? d.rv / d.sp : 0;
-    var cpa  = d.cv > 0 ? d.sp / d.cv : 0;
-    return '<div class="acc-card">' +
-      '<div class="acc-name">' + nm + '</div>' +
-      '<div class="acc-metrics">' +
-        '<div class="acc-metric"><div class="ml">Spend</div><div class="mv">'   + aud(d.sp)            + '</div></div>' +
-        '<div class="acc-metric"><div class="ml">Conv</div><div class="mv">'    + int(d.cv)             + '</div></div>' +
-        '<div class="acc-metric"><div class="ml">Revenue</div><div class="mv">' + aud(d.rv)            + '</div></div>' +
-        '<div class="acc-metric"><div class="ml">ROAS</div><div class="mv">'    + roas.toFixed(2) + 'x</div></div>' +
-        '<div class="acc-metric"><div class="ml">CPA</div><div class="mv">'     + (d.cv > 0 ? aud(cpa) : '—') + '</div></div>' +
-        '<div class="acc-metric"><div class="ml">Clicks</div><div class="mv">'  + int(d.cl)            + '</div></div>' +
-      '</div></div>';
-  }).join('');
+  // Monthly Trend col indices (0-based):
+  // 1=Spend, 6=Conversions, 11=CPA
+  var spend = rows.map(function(r) { return n(r[1]);  });
+  var conv  = rows.map(function(r) { return n(r[6]);  });
+  var cpa   = rows.map(function(r) { return n(r[11]); });
+
+  function audK(v) { return v >= 1000 ? '$' + (v/1000).toFixed(0) + 'k' : '$' + Math.round(v); }
+  function intFmt(v) { return Math.round(v).toLocaleString('en-AU'); }
+
+  function makeChart(id, existing, data, color, bgColor, yFmt) {
+    if (existing) existing.destroy();
+    return new Chart(document.getElementById(id), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{ data: data, borderColor: color, backgroundColor: bgColor,
+          borderWidth: 2, pointRadius: 4, tension: 0.3, fill: true }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function(ctx) { return yFmt(ctx.parsed.y); } } }
+        },
+        scales: { y: { ticks: { callback: function(v) { return yFmt(v); } } } }
+      }
+    });
+  }
+
+  chartSpend = makeChart('chart-spend', chartSpend, spend, '#1a73e8', 'rgba(26,115,232,0.1)', audK);
+  chartConv  = makeChart('chart-conv',  chartConv,  conv,  '#34a853', 'rgba(52,168,83,0.1)',   intFmt);
+  chartCPA   = makeChart('chart-cpa',   chartCPA,   cpa,   '#e91e8c', 'rgba(233,30,140,0.08)', audK);
 }
 
-// ── Start ─────────────────────────────────────────────────
+// ── Start ───────────────────────────────────────────────
 window.onload = function() { loadData(); };
 </script>
 </body>
